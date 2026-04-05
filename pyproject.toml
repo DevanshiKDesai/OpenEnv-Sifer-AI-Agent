@@ -1,0 +1,29 @@
+[project]
+name = "sifer-trust-env"
+version = "1.0.0"
+description = "SiferTrustEnv — OpenEnv-compliant Trust & Safety fraud analyst simulation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "pydantic>=2.0,<3.0",
+    "openai>=1.0,<2.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "openenv-core>=0.1.0",
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["server*"]

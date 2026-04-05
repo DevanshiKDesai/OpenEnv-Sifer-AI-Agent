@@ -1,0 +1,113 @@
+# openenv.yaml — SiferTrustEnv
+
+name: SiferTrustEnv
+version: "1.0.0"
+description: >
+  Simulates a Level-1 Trust & Safety (Fraud) Analyst role for an e-commerce
+  platform. The agent reads synthetic platform logs and must detect and
+  mitigate promo abuse, fake review bombing, and sneaker scalping without
+  disrupting legitimate shoppers.
+
+author: "Scaler x OpenEnv Hackathon Submission"
+tags:
+  - openenv
+  - trust-and-safety
+  - fraud-detection
+  - e-commerce
+  - real-world
+
+entry_point: sifer_env.SiferTrustEnv
+
+tasks:
+  - id: task_1_easy
+    level: easy
+    name: "Promo Code Abuse"
+    description: >
+      One IP created 15 accounts in 2 minutes, each immediately checking out
+      with promo code NEWUSER50. Issue RevokeOrders for that IP.
+    task_level: 1
+    max_steps: 10
+    success_threshold: 1.0
+
+  - id: task_2_medium
+    level: medium
+    name: "Review Bombing"
+    description: >
+      50 bot accounts posted the identical review text on a new product within
+      3 minutes. Issue DeleteBotReviews listing all bot user_ids.
+    task_level: 2
+    max_steps: 10
+    success_threshold: 1.0
+
+  - id: task_3_hard
+    level: hard
+    name: "Sneaker Scalping (Fuzzy Address)"
+    description: >
+      10 accounts on 10 different IPs all checked out within 0.5 seconds.
+      Their shipping addresses are slightly obfuscated variants of the same
+      physical location. Issue CancelOrders for all 10 scalper order_ids.
+    task_level: 3
+    max_steps: 10
+    success_threshold: 0.5
+
+observation_space:
+  type: object
+  fields:
+    task_level:       { type: integer, description: "1=Easy 2=Medium 3=Hard" }
+    task_desc:        { type: string,  description: "Plain-language objective" }
+    events:
+      type: array
+      description: "List of PlatformEvent log entries"
+      item_fields:
+        timestamp:   { type: string }
+        ip_address:  { type: string }
+        event_type:  { type: string, description: "account_created | review_posted | checkout_completed | page_view | login" }
+        user_id:     { type: string, nullable: true }
+        order_id:    { type: string, nullable: true }
+        details:     { type: object, description: "promo_code, review_text, shipping_address, product_id, etc." }
+    revoked_ips:      { type: array }
+    deleted_reviews:  { type: array }
+    cancelled_orders: { type: array }
+    step_count:       { type: integer }
+
+action_space:
+  type: discriminated_union
+  discriminator: action_type
+  actions:
+    RevokeOrders:
+      description: "Revoke all orders placed from a specific IP"
+      fields:
+        action_type: { type: string, const: "RevokeOrders" }
+        ip_address:  { type: string }
+    DeleteBotReviews:
+      description: "Delete reviews posted by a list of bot user_ids"
+      fields:
+        action_type: { type: string, const: "DeleteBotReviews" }
+        user_ids:    { type: array, items: { type: string } }
+    CancelOrders:
+      description: "Cancel a specific list of order_ids"
+      fields:
+        action_type: { type: string, const: "CancelOrders" }
+        order_ids:   { type: array, items: { type: string } }
+    Pass:
+      description: "Do nothing and advance the clock"
+      fields:
+        action_type: { type: string, const: "Pass" }
+
+reward:
+  range: [-1.0, 1.0]
+  description: >
+    +1.0  fully correct decisive action.
+    +0.5  partial success (Tasks 2 & 3).
+     0.0  Pass — no progress, no penalty.
+    -0.2  incorrect but non-destructive action.
+    -0.5  wrong action type for the task.
+    -1.0  destructive false positive (hurt a legitimate user/order).
+
+runtime:
+  python: ">=3.10"
+  dependencies:
+    - pydantic>=2.0
+    - openai>=1.0
+    - fastapi>=0.110.0
+    - uvicorn>=0.29.0
