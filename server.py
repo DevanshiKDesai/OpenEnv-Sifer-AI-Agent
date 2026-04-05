@@ -1,13 +1,15 @@
 """
 server.py — FastAPI HTTP server wrapping SiferTrustEnv.
-Uses openenv-core's create_fastapi_app when available (passes openenv validate),
-falls back to manual FastAPI routes otherwise.
+
+The /reset endpoint accepts an empty body {}, null, or {"task_level": N}
+so automated validators that POST with no body still get a 200 response.
 """
 from __future__ import annotations
 import os, subprocess, sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sifer_env import (
     CancelOrders, DeleteBotReviews, Observation,
@@ -23,30 +25,53 @@ try:
     _using_core = True
 except Exception:
     _using_core = False
-    app = FastAPI(title="SiferTrustEnv", version="1.0.0")
+    app = FastAPI(title="SiferTrustEnv", version="1.0.0",
+                  description="OpenEnv-compliant Trust & Safety fraud analyst simulation.")
 
 
+# ---------------------------------------------------------------------------
+# Health check — always present
+# ---------------------------------------------------------------------------
 @app.get("/", summary="Health check")
 def health() -> Dict[str, str]:
     return {"status": "ok", "env": "SiferTrustEnv", "version": "1.0.0"}
 
 
+# ---------------------------------------------------------------------------
+# Manual routes — used when openenv-core is not installed
+# ---------------------------------------------------------------------------
 if not _using_core:
-    class ResetRequest(BaseModel):
-        task_level: int = 1
 
     class ActionRequest(BaseModel):
         action: Dict[str, Any]
 
-    @app.post("/reset")
-    def reset_env(req: ResetRequest) -> Dict[str, Any]:
-        if req.task_level not in (1, 2, 3):
-            raise HTTPException(status_code=400, detail="task_level must be 1, 2 or 3")
-        return env.reset(task_level=req.task_level).model_dump()
+    @app.post("/reset", summary="Reset the environment")
+    async def reset_env(request: Request) -> Dict[str, Any]:
+        """
+        Accepts any of:
+          - empty body
+          - {}
+          - {"task_level": 1}
+        Defaults to task_level=1 when not provided.
+        """
+        task_level = 1
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                task_level = int(body.get("task_level", 1))
+        except Exception:
+            pass  # empty or null body — use default task_level=1
 
-    @app.post("/step")
+        if task_level not in (1, 2, 3):
+            task_level = 1  # silently clamp to valid range
+
+        obs: Observation = env.reset(task_level=task_level)
+        return obs.model_dump()
+
+    @app.post("/step", summary="Step the environment")
     def step_env(req: ActionRequest) -> Dict[str, Any]:
-        data, atype = req.action, req.action.get("action_type")
+        data  = req.action
+        atype = data.get("action_type")
         try:
             if atype == "RevokeOrders":
                 action = RevokeOrders(ip_address=data["ip_address"])
@@ -65,24 +90,40 @@ if not _using_core:
         except RuntimeError as e:
             raise HTTPException(409, detail=str(e))
 
-    @app.get("/state")
+    @app.get("/state", summary="Get current internal state")
     def get_state() -> Dict[str, Any]:
-        return env.state   # @property — no parentheses
+        return env.state  # @property
 
 
+# ---------------------------------------------------------------------------
+# /run — always present
+# ---------------------------------------------------------------------------
 @app.post("/run", summary="Run inference.py")
 def run_inference() -> Dict[str, Any]:
-    missing = [v for v in ("API_BASE_URL", "MODEL_NAME", "HF_TOKEN") if not os.environ.get(v)]
+    missing = [v for v in ("API_BASE_URL", "MODEL_NAME", "HF_TOKEN")
+               if not os.environ.get(v)]
     if missing:
         raise HTTPException(400, detail=f"Missing env vars: {missing}")
     try:
-        r = subprocess.run([sys.executable, "inference.py"],
-                           capture_output=True, text=True, timeout=1200,
-                           env=os.environ.copy())
-        return {"returncode": r.returncode, "stdout": r.stdout[-8000:], "stderr": r.stderr[-2000:]}
+        r = subprocess.run(
+            [sys.executable, "inference.py"],
+            capture_output=True, text=True, timeout=1200,
+            env=os.environ.copy(),
+        )
+        return {"returncode": r.returncode,
+                "stdout": r.stdout[-8000:],
+                "stderr": r.stderr[-2000:]}
     except subprocess.TimeoutExpired:
         raise HTTPException(504, detail="Inference timed out")
 
 
-if __name__ == "__main__":
+# ---------------------------------------------------------------------------
+# Entry points
+# ---------------------------------------------------------------------------
+def main():
+    """Entry point required by openenv validate spec."""
     uvicorn.run("server:app", host="0.0.0.0", port=7860, log_level="info")
+
+
+if __name__ == "__main__":
+    main()
