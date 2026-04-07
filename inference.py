@@ -64,38 +64,21 @@ TASK_NAMES = {1: "promo_code_abuse", 2: "review_bombing", 3: "sneaker_scalping"}
 # ---------------------------------------------------------------------------
 
 def log_start(task: str, env: str, model: str) -> None:
-    """Emit the mandatory [START] log line."""
-    print(json.dumps({
-        "type":  "[START]",
-        "task":  task,
-        "env":   env,
-        "model": model,
-    }), flush=True)
+    """Emit the mandatory [START] log line in the required plain-text format."""
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
 def log_step(step: int, action: str, reward: float,
              done: bool, error: Any = None) -> None:
     """Emit a mandatory [STEP] log line for each environment step."""
-    print(json.dumps({
-        "type":   "[STEP]",
-        "step":   step,
-        "action": action,
-        "reward": reward,
-        "done":   done,
-        "error":  error,
-    }), flush=True)
+    error_str = str(error) if error else "none"
+    print(f"[STEP] step={step} reward={reward} done={done} error={error_str}", flush=True)
 
 
 def log_end(success: bool, steps: int, score: float,
             rewards: List[float]) -> None:
     """Emit the mandatory [END] log line."""
-    print(json.dumps({
-        "type":    "[END]",
-        "success": success,
-        "steps":   steps,
-        "score":   score,
-        "rewards": rewards,
-    }), flush=True)
+    print(f"[END] success={success} steps={steps} score={round(score, 4)} rewards={rewards}", flush=True)
 
 
 # ---------------------------------------------------------------------------
