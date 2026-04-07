@@ -275,9 +275,12 @@ def main() -> None:
                 if done:
                     break
 
-            # Compute normalised score in [0, 1]
-            score   = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-            score   = min(max(score, 0.0), 1.0)
+            # Compute normalised score — must be strictly between 0 and 1
+            # (validator rejects exact 0.0 and exact 1.0)
+            raw     = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+            raw     = min(max(raw, 0.0), 1.0)
+            # Clamp to open interval (0.01, 0.99) so score is never exactly 0 or 1
+            score   = 0.01 + raw * 0.98
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         finally:
