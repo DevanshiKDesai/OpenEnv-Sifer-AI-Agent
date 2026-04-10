@@ -78,7 +78,8 @@ def log_step(step: int, action: str, reward: float,
 def log_end(success: bool, steps: int, score: float,
             rewards: List[float]) -> None:
     """Emit the mandatory [END] log line."""
-    print(f"[END] success={success} steps={steps} score={round(score, 4)} rewards={rewards}", flush=True)
+    rewards_str = ",".join(str(round(r, 4)) for r in rewards)
+    print(f"[END] success={success} steps={steps} score={round(score, 4)} rewards={rewards_str}", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +281,7 @@ def main() -> None:
             raw     = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
             raw     = min(max(raw, 0.0), 1.0)
             # Clamp to open interval (0.01, 0.99) so score is never exactly 0 or 1
-            score   = 0.01 + raw * 0.98
+            score   = 0.001 + raw * 0.998
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         finally:

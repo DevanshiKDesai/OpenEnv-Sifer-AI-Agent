@@ -23,8 +23,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-ENV ENABLE_WEB_INTERFACE=true
-
 WORKDIR /app
 
 COPY requirements.txt .
@@ -40,6 +38,6 @@ RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app
 USER appuser
 
-EXPOSE 7860
+EXPOSE 8000
 
 CMD ["python", "server.py"]

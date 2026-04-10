@@ -148,7 +148,7 @@ Action = Union[RevokeOrders, DeleteBotReviews, CancelOrders, Pass]
 # ---------------------------------------------------------------------------
 
 class Reward(BaseModel):
-    value:     float            = Field(..., ge=-1.0, le=1.0)
+    value:     float            = Field(..., ge=0.0, le=1.0)
     breakdown: Dict[str, float] = Field(default_factory=dict)
     feedback:  str              = Field("")
 
@@ -488,19 +488,19 @@ class SiferTrustEnv(_OpenEnvBase):
     def _grade_task1(self, action: Action) -> tuple[Reward, Dict[str, Any]]:
         if isinstance(action, RevokeOrders):
             if action.ip_address == ABUSER_IP:
-                return Reward(value=1.0, breakdown={"correct": 1.0},
+                return Reward(value=0.999, breakdown={"correct": 0.999},
                               feedback=f"✅ Correct! Revoked all promo-abuse orders from {ABUSER_IP}."), {"correct": True}
             elif action.ip_address == LEGIT_PROMO_IP:
-                return Reward(value=-1.0, breakdown={"false_positive": -1.0},
+                return Reward(value=0.001, breakdown={"false_positive": 0.001},
                               feedback=f"❌ Wrong! {LEGIT_PROMO_IP} is a real customer who used the promo once."), {"correct": False}
             else:
-                return Reward(value=-0.2, breakdown={"unknown_ip": -0.2},
+                return Reward(value=0.2, breakdown={"unknown_ip": -0.2},
                               feedback=f"⚠️ {action.ip_address} is not the abuser IP."), {"correct": False}
         elif isinstance(action, Pass):
-            return Reward(value=0.0, breakdown={"pass": 0.0},
+            return Reward(value=0.45, breakdown={"pass": 0.45},
                           feedback="ℹ️ Look for one IP with 15+ account_created events within 2 min, each followed by a promo checkout."), {"correct": False}
         else:
-            return Reward(value=-0.5, breakdown={"wrong_type": -0.5},
+            return Reward(value=0.15, breakdown={"wrong_type": 0.15},
                           feedback="⚠️ Wrong action type. Use RevokeOrders."), {"correct": False}
 
     # ------------------------------------------------------------------
@@ -515,21 +515,21 @@ class SiferTrustEnv(_OpenEnvBase):
             true_pos  = submitted & bots
 
             if false_pos:
-                return Reward(value=-1.0, breakdown={"false_positive": -1.0},
+                return Reward(value=0.001, breakdown={"false_positive": 0.001},
                               feedback=f"❌ Deleted legit review(s) from: {false_pos}. Only delete identical-text reviews."), {"correct": False}
             if true_pos == bots:
-                return Reward(value=1.0, breakdown={"full_delete": 1.0},
+                return Reward(value=0.999, breakdown={"full_delete": 0.999},
                               feedback=f"✅ Perfect! All {len(bots)} bot reviews deleted."), {"correct": True}
             if len(true_pos) >= 25:
-                return Reward(value=0.5, breakdown={"partial": 0.5},
+                return Reward(value=0.55, breakdown={"partial": 0.55},
                               feedback=f"⚠️ Partial — deleted {len(true_pos)}/{len(bots)} bot reviews."), {"correct": False}
-            return Reward(value=-0.2, breakdown={"insufficient": -0.2},
+            return Reward(value=0.2, breakdown={"insufficient": 0.2},
                           feedback=f"❌ Only {len(true_pos)}/{len(bots)} identified."), {"correct": False}
         elif isinstance(action, Pass):
-            return Reward(value=0.0, breakdown={"pass": 0.0},
+            return Reward(value=0.45, breakdown={"pass": 0.45},
                           feedback="ℹ️ Look for review_text that repeats identically across many users on the same product_id."), {"correct": False}
         else:
-            return Reward(value=-0.5, breakdown={"wrong_type": -0.5},
+            return Reward(value=0.15, breakdown={"wrong_type": -0.5},
                           feedback="⚠️ Wrong action type. Use DeleteBotReviews."), {"correct": False}
 
     # ------------------------------------------------------------------
@@ -547,21 +547,21 @@ class SiferTrustEnv(_OpenEnvBase):
             true_pos  = submitted & scalper_set
 
             if false_pos:
-                return Reward(value=-1.0, breakdown={"false_positive": -1.0},
+                return Reward(value=0.001, breakdown={"false_positive": 0.001},
                               feedback=f"❌ Cancelled legit order(s): {false_pos}."), {"correct": False}
             if true_pos == scalper_set:
-                return Reward(value=1.0, breakdown={"full_cancel": 1.0},
+                return Reward(value=0.999, breakdown={"full_cancel": 1.0},
                               feedback=f"✅ Perfect! All {len(scalper_set)} scalper orders cancelled."), {"correct": True}
             if len(true_pos) >= 5:
-                return Reward(value=0.5, breakdown={"partial": 0.5},
+                return Reward(value=0.55, breakdown={"partial": 0.5},
                               feedback=f"⚠️ Partial — cancelled {len(true_pos)}/{len(scalper_set)} scalper orders."), {"correct": False}
-            return Reward(value=-0.2, breakdown={"insufficient": -0.2},
+            return Reward(value=0.2, breakdown={"insufficient": -0.2},
                           feedback=f"❌ Only {len(true_pos)}/{len(scalper_set)} scalper orders found."), {"correct": False}
         elif isinstance(action, Pass):
-            return Reward(value=0.0, breakdown={"pass": 0.0},
+            return Reward(value=0.45, breakdown={"pass": 0.45},
                           feedback="ℹ️ Look for checkouts on the same product within 0.5 s with fuzzy-matching shipping addresses."), {"correct": False}
         else:
-            return Reward(value=-0.5, breakdown={"wrong_type": -0.5},
+            return Reward(value=0.15, breakdown={"wrong_type": -0.5},
                           feedback="⚠️ Wrong action type. Use CancelOrders."), {"correct": False}
 
 
